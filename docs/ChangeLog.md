@@ -16,6 +16,19 @@ person, never a role. Superseded decisions stay, marked superseded.
 
 ---
 
+## Deferred 4 — Publishing and sandbox testing done by AJ, not the agent (Step 5)
+
+**Problem:** N/A — recording an environment constraint and AJ's decision, not a defect.
+**Root cause:** N/A.
+**Resolution:** Publishing to a BC sandbox requires an interactive Microsoft browser sign-in; this
+session runs in a headless GitHub Codespace with no browser (`xdg-open` fails outright — there is
+no display, not just a missing token), so the AL MCP Server's `al_publish`/`al_auth_login` cannot
+complete sign-in from here. AJ chose to publish `outputAppPackage/SIC_Code_Classification_1.0.0.0.app`
+and run sandbox testing from their own machine, then report findings back. No API pages exist in
+this extension, so Step 5's agent-run API-checklist question doesn't apply either way.
+**Files affected:** None.
+**Design Doc updated:** No.
+
 ## Issue 7 — First compile: two namespace errors and one property conflict
 
 **Problem:** The first mandatory compile (Step 5, CodeCop+UICop+PerTenantExtensionCop) failed with
