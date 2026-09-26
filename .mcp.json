@@ -1,0 +1,1 @@
+{ "mcpServers": { "al": { "command": "sh", "args": ["scripts/al-mcp.sh"] } } }
