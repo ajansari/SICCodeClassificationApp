@@ -1,0 +1,15 @@
+scripts/
+.claude/settings.local.json
+.ocpf/
+standardsGuide/
+opsGuide/
+runbookSteps/
+documentTemplates/
+patterns/
+.alpackages/
+*.g.xlf
+
+# Framework files (Step 1 intake: Yes, leave these out of the repository)
+CLAUDE.md
+LITE_[Rr]unbook[Cc]hange[Ll]og.md
+LITE_RunbookSchematics.md
