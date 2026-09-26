@@ -1,6 +1,8 @@
 namespace OnlyCopilotFans.SicClassification;
 
 using System.Environment.Configuration;
+using System.Media;
+using System.Reflection;
 
 codeunit 77075 "ocpfsicSicCodeImport"
 {

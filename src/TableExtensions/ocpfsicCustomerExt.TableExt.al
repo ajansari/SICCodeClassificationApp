@@ -15,7 +15,6 @@ tableextension 77073 "ocpfsicCustomerExt" extends Customer
         field(77091; "SIC Code Description"; Text[150])
         {
             Caption = 'SIC Code Description';
-            DataClassification = CustomerContent;
             FieldClass = FlowField;
             CalcFormula = lookup("ocpfsicSicCode".Description where(Code = field("SIC Code")));
             Editable = false;

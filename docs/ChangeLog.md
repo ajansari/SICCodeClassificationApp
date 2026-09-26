@@ -16,6 +16,23 @@ person, never a role. Superseded decisions stay, marked superseded.
 
 ---
 
+## Issue 7 — First compile: two namespace errors and one property conflict
+
+**Problem:** The first mandatory compile (Step 5, CodeCop+UICop+PerTenantExtensionCop) failed with
+three errors: `Enum 'Video Category' is missing` and `Codeunit 'Type Helper' is missing` (both
+`using`'d under `System.Environment.Configuration`, which is wrong for them), and
+`DataClassification` set on a `FlowField` (`AL0223` — the property is invalid on a FlowField since
+it has no storage of its own; the underlying field's classification already applies).
+**Root cause:** `Video Category` is actually namespace `System.Media` and `Type Helper` is
+`System.Reflection` — verified via `al_symbolsearch`, not assumed from their grouping in Microsoft
+Learn's training example. The FlowField property was carried over by habit from the stored field
+above it.
+**Resolution:** Added `using System.Media;` and `using System.Reflection;`; removed
+`DataClassification` from `"SIC Code Description"`. Recompiled clean: 0 errors, 0 warnings.
+**Files affected:** `src/Codeunits/ocpfsicSicCodeImport.Codeunit.al`,
+`src/TableExtensions/ocpfsicCustomerExt.TableExt.al`, `docs/DesignDoc.md` (B7).
+**Design Doc updated:** Yes.
+
 ## Issue 6 — Design Doc said no events were needed; the wizard needs one subscription
 
 **Problem:** B7 originally said no Microsoft event needed subscribing. But to appear on BC's

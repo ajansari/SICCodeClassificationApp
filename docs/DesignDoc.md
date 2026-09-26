@@ -233,8 +233,10 @@ data must look like.
 Wizard (B3.5) appear on BC's standard **Assisted Setup** page (Page 1901), Codeunit 77075
 "ocpfsicSicCodeImport" subscribes to `Codeunit "Guided Experience"`'s `OnRegisterAssistedSetup`
 event (`System.Environment.Configuration` — verified via `al_symbolsearch` against the downloaded
-symbols, not memory) and calls `InsertAssistedSetup`, guarded by `Exists(...)` so it isn't
-re-registered on every startup:
+symbols, not memory; `Enum "Video Category"` is `System.Media` and `Codeunit "Type Helper"` is
+`System.Reflection` — each object's own namespace, not necessarily the namespace of the codeunit
+that uses it) and calls `InsertAssistedSetup`, guarded by `Exists(...)` so it isn't re-registered on
+every startup:
 - `Exists(GuidedExperienceType: Enum "Guided Experience Type"; ObjectType: ObjectType; ObjectID: Integer): Boolean` — signature confirmed in symbols.
 - `InsertAssistedSetup(Title: Text[2048]; ShortTitle: Text[50]; Description: Text[1024]; ExpectedDuration: Integer; ObjectTypeToRun: ObjectType; ObjectIDToRun: Integer; AssistedSetupGroup: Enum "Assisted Setup Group"; VideoUrl: Text[250]; VideoCategory: Enum "Video Category"; HelpUrl: Text[250])` — signature confirmed in symbols.
 - `Enum "Assisted Setup Group"` ships only `Uncategorized` (ordinal 0) out of the box, and its own
