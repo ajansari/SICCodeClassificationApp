@@ -101,8 +101,15 @@ scope (Standards §8.9 — both answered "No" at intake).
 | 77076 | Page "ocpfsicSicCodeSetupWizard" (Assisted Setup) |
 | 77077 | PermissionSet "ocpfsicSicView" |
 | 77078 | PermissionSet "ocpfsicSicEdit" |
+| 77079 | Table "ocpfsicSicSummary" (temporary — drill-down buffer) |
+| 77080 | Page "ocpfsicSicSummary" (List — customer-count drill-down by Division / Major Group / Industry Group) |
+| 77081 | Page "ocpfsicSicCodeApi" (API) |
+| 77082 | Page "ocpfsicCustomerApi" (API) |
 | 77090, 77091 | Table extension field IDs on "ocpfsicCustomerExt" (77073): `SIC Code`, `SIC Code Description` — field IDs share the app's `idRanges` pool but are a separate numbering space from object IDs, so they don't reduce the object buffer below. |
-| 77079–77089, 77092–77099 | **Buffer — 19 IDs unallocated** (still well above the 10-ID minimum for a range this size, Standards §5.2), reserved for Step 6 gap-fill work and any further extension fields. |
+| 77083–77089, 77092–77099 | **Buffer — 15 IDs unallocated** (still above the 10-ID minimum for a range this size, Standards §5.2). |
+
+Field ID 8 on Table 77071 "ocpfsicSicCode" (`Customer Count`, FlowField) uses the table's own field
+numbering space, not the object ID range above.
 
 ## B3. Per-object specification
 
@@ -131,6 +138,7 @@ scope (Standards §8.9 — both answered "No" at intake).
 | — | `Major Group Code` | New, `Code[2]` | Included — 2-digit code within the Division, for filtering/grouping. | Stored |
 | — | `Industry Group Code` | New, `Code[3]` | Included — 3-digit code within the Major Group. | Stored |
 | — | `Division Name Overridden` | New, `Boolean` | Included — set to `true` the first time a user directly edits `Division Name` on the page; checked by the Import codeunit (B3.4) so a re-import never clobbers a manual correction. Not shown as a page column (internal bookkeeping only). | Stored |
+| — | `Customer Count` | New, `Integer`, field 8 | Included — how many Customers carry this SIC code, for the SIC Codes list and API (B3.2, B3.8). `CalcFormula = Count(Customer WHERE("SIC Code" = FIELD(Code)))` (Standards Part 7: pure count of a related table → FlowField, not stored). No `DataClassification` — invalid on a FlowField (`AL0223`, same defect class as Issue 7). | FlowField |
 
 No Major Group *name* field: OSHA's manual has ~83 major groups and no clean machine-readable name
 list was found alongside the industry-level data (only Division names, 10 values, are reliably
@@ -151,8 +159,13 @@ revisited.
 | Caption-locking | N/A — not an API object. |
 
 #### Fields shown
-`Code`, `Description`, `Division Code`, `Division Name`, `Major Group Code`, `Industry Group Code`
-— all as plain columns, editable per the page's `DelayedInsert = true`.
+`Code`, `Description`, `Division Code`, `Division Name`, `Major Group Code`, `Industry Group Code`,
+`Customer Count` — all as plain columns, editable per the page's `DelayedInsert = true` (`Customer
+Count` is a read-only FlowField).
+
+#### Actions
+`Customers` (Processing area) — filters `Customer` on `"SIC Code" = Rec.Code` and opens the
+standard `Customer List` page (verified via `al_symbolsearch`), for SIC-Code-level drill-down.
 
 ### B3.3 Table Extension 77073 "ocpfsicCustomerExt" extends Customer
 
@@ -203,6 +216,49 @@ Includes `ocpfsicSicView`, plus:
 | `Codeunit "ocpfsicSicCodeImport" = X` | Execute. |
 | `Page "ocpfsicSicCodeSetupWizard" = X` | Execute. |
 
+### B3.8 Table 77079 "ocpfsicSicSummary" (temporary)
+
+| Property | Value |
+|---|---|
+| Source table | New table, `TableType = Temporary` — a drill-down buffer, never persisted. |
+| Purpose | Holds one row per group (Division, Major Group, or Industry Group) with its rolled-up Customer count, rebuilt in memory each time Page 77080 switches level. |
+| Fields | `Level` (Option: Division / Major Group / Industry Group), `Group Code` (Code[3]), `Group Name` (Text[100], populated for Division only — no Major/Industry Group name field exists, B3.1), `Customer Count` (Integer). |
+| Deletion behaviour | N/A — temporary, in-memory only. |
+
+### B3.9 Page 77080 "ocpfsicSicSummary" (List)
+
+| Property | Value |
+|---|---|
+| Source table | "ocpfsicSicSummary" (77079), read-only (`Editable = false`, insert/modify/delete disallowed). |
+| Purpose | Interactive customer-count drill-down by Division, Major Group, or Industry Group — no report object, per the human's explicit "interactive lookup is good enough" (2026-09-27). |
+| Actions | `By Division` / `By Major Group` / `By Industry Group` (Navigation) rebuild the buffer by looping `"ocpfsicSicCode"` with `SetAutoCalcFields("Customer Count")` and summing per group key — a two-hop aggregate (Customer → SIC Code → group) that a single FlowField cannot express, so it's done in AL rather than in the buffer table. `Customers` (Processing) marks every `Customer` whose `"SIC Code"` belongs to the selected group (looping the matching `"ocpfsicSicCode"` rows, not a filter-string, so there's no OR-list length concern for a large group) and runs the standard `Customer List` page against the marked set. |
+| `using` | `Microsoft.Sales.Customer` (for the `Customer` record used in `Customers`). |
+
+### B3.10 Page 77081 "ocpfsicSicCodeApi" (API)
+
+| Property | Value |
+|---|---|
+| Source table | "ocpfsicSicCode" (77071). |
+| APIPublisher / APIGroup / APIVersion | `onlyCopilotFans` / `ocpfsicClassification` / `v1.0` (`docs/ProjectParameters.md`). |
+| EntityName / EntitySetName / ODataKeyFields | `ocpfsicSicCode` / `ocpfsicSicCodes` / `SystemId`. |
+| DelayedInsert = true / Editable = false | `DelayedInsert = true` — Read/Write per the human's explicit request (2026-09-27); the table's own `OnDelete` block-if-referenced guard (B3.1) still applies to API deletes. |
+| Fields exposed | `SystemId` (key, hidden), `Code`, `Description`, `Division Code`, `Division Name`, `Major Group Code`, `Industry Group Code`, `Customer Count`. `Division Name Overridden` excluded — internal bookkeeping only (B3.1), never exposed. Every field carries `ApplicationArea = All` (Standards §1.4, mandatory even on API pages — fixed at Step 6 review, Issue 9). |
+| API caption locking (§8.6) | N/A — Part 8 scopes to projects with a target language beyond source; this project has none (`docs/ProjectParameters.md`). Neither `EntityCaption`/`EntitySetCaption` nor `Locked = true` is set. |
+
+### B3.11 Page 77082 "ocpfsicCustomerApi" (API)
+
+| Property | Value |
+|---|---|
+| Source table | `Customer` (standard). |
+| APIPublisher / APIGroup / APIVersion | `onlyCopilotFans` / `ocpfsicClassification` / `v1.0`. |
+| EntityName / EntitySetName / ODataKeyFields | `ocpfsicCustomer` / `ocpfsicCustomers` / `SystemId`. |
+| DelayedInsert = true | Read/Write per the human's explicit request (2026-09-27) for a **new, self-contained** Customer API distinct from Microsoft's own standard Customer API (a leaner alternative — extending the standard page with just the two SIC fields — was offered and declined). |
+| Fields exposed | All 159 applicable `Customer` fields (Standards Part 3.1/3.2: excludes 18 localization-range fields `10000–89999`, the 4 `FlowFilter` fields, 1 `ObsoleteState = Pending` field, 1 `ObsoleteState = Removed` field — verified field-by-field against the downloaded Base Application symbols, not memory), plus this extension's `SIC Code` and `SIC Code Description`. Field identifiers converted to camelCase per Standards §4.1–§4.3 (e.g. `"No."` → `no`, `"Credit Limit (LCY)"` → `creditLimitLCY`); every identifier verified ≤ 30 characters. `Caption`/`ToolTip` copied from the standard field where one exists; where Base Application defines no `ToolTip`, the Standards §2.6 fallback (`'Specifies the <Caption>.'`) is used. |
+| `using` | `Microsoft.CRM.Contact`, `Microsoft.Finance.ReceivablesPayables`, `Microsoft.Foundation.Enums`, `Microsoft.Foundation.Shipping`, `Microsoft.Inventory.Tracking`, `Microsoft.Pricing.Calculation`, `Microsoft.Sales.Customer` — one per namespace of an `Enum` type used by an included field, verified via `al_symbolsearch`. |
+| Maintenance note | This page enumerates Customer's fields as they exist in BC 28.0/28.5 symbols today. A later BC version adding, renaming, or obsoleting a Customer field will not automatically appear here — revisit this page (and this table) at the next version bump that touches Customer, per B6. |
+| ApplicationArea | Every one of the 161 fields (159 Customer + `SIC Code` + `SIC Code Description`) carries `ApplicationArea = All` (Standards §1.4 — fixed at Step 6 review, Issue 9). |
+| API caption locking (§8.6) | N/A — same reasoning as B3.10; this project records no target language beyond source. |
+
 ## B4. Design patterns beyond the Standards Guide (cited)
 
 - **Bundled static reference data, loaded via an Assisted Setup Wizard rather than a live web
@@ -215,9 +271,14 @@ Includes `ocpfsicSicView`, plus:
 
 ## B5. Permission sets (grants enumerated)
 
-See B3.6–B3.7 above — both sets fully enumerated, one table (`ocpfsicSicCode`) and this extension's
-three own objects; the standard Customer permission sets already cover `Customer` itself, so no
-grant is added there.
+See B3.6–B3.7 above — both sets fully enumerated. `ocpfsicSicView` (77077) now also grants `X` on
+`ocpfsicSicSummary` (77080), `ocpfsicSicCodeApi` (77081), and `ocpfsicCustomerApi` (77082);
+`ocpfsicSicEdit` (77078) inherits those via `IncludedPermissionSets`. Table `ocpfsicSicCode`'s
+existing `R` (view) / `RIMD` (edit) grants govern what the two API pages can actually read or write
+— granting a page `X` only lets a user open/call it, not bypass the underlying tabledata
+permission. No grant is added for `Customer` (API 77082) or the temporary `ocpfsicSicSummary` table
+(77079, no persisted storage to permission) — same rationale as the original table extension: the
+standard Customer permission sets already cover `Customer` itself.
 
 ## B6. Upgrade and data migration
 
@@ -284,22 +345,33 @@ N/A — no translation files (US wording only, chosen at Step 1 intake).
 | 77076 | Page (Assisted Setup) | ocpfsicSicCodeSetupWizard | *(UI only)* | N/A |
 | 77077 | PermissionSet | ocpfsicSicView | — | N/A |
 | 77078 | PermissionSet | ocpfsicSicEdit | — | N/A |
+| 77079 | Table (temporary) | ocpfsicSicSummary | *(new, buffer only)* | N/A |
+| 77080 | Page (List) | ocpfsicSicSummary | ocpfsicSicSummary | R |
+| 77081 | Page (API) | ocpfsicSicCodeApi | ocpfsicSicCode | RW |
+| 77082 | Page (API) | ocpfsicCustomerApi | Customer | RW |
 
 ## Self-check
 
 - [x] Every Step 1 entity maps to at least one object, or is explicitly deferred. (A5)
-- [x] Every ID is inside the allocated range (77071–77099); 21-ID buffer left (well above the
+- [x] Every ID is inside the allocated range (77071–77099); 15-ID buffer left (still above the
       10-ID minimum for a range this size, Standards §5.2).
 - [x] Every source table number and `using` namespace comes from the symbol file — Customer
       verified via `al_symbolsearch` (`Microsoft.Sales.Customer.Customer`); no other standard
       table is referenced.
-- [x] Every field complies with Localization (US) — all new fields are extension-owned, no standard
-      BC field inclusion/exclusion decision applies; no obsolete field is touched.
-- [x] All names ≤ 30 characters (longest: `ocpfsicSicCodeSetupWizard`, 25 chars); R / RW matches
-      actual mutability (B3, A5).
-- [x] Permission sets enumerated and named with this extension's App Code (`SIC`) — B3.6–B3.7.
-- [x] Every deletion behaviour decided (B3.1, B8); no API object exists, so no caption-locking
-      decision is needed (A3, B3.2).
+- [x] Every field complies with Localization (US) — extension-owned fields need no
+      inclusion/exclusion decision; the Customer API's (B3.11) 159 standard fields were filtered
+      field-by-field against the downloaded symbols per Standards §3.1–§3.2 (18 localization-range,
+      4 FlowFilter, 2 obsolete fields excluded); no obsolete field is touched anywhere.
+- [x] All names ≤ 30 characters (longest object: `ocpfsicSicCodeSetupWizard`, 25 chars; longest
+      field identifier: `intrastatPartnerType`, 21 chars, B3.11) — verified programmatically for
+      all 161 Customer API field identifiers; R / RW matches actual mutability (B3, A5).
+- [x] Permission sets enumerated and named with this extension's App Code (`SIC`) — B3.6–B3.7,
+      extended at B5 to cover the three new pages.
+- [x] Every deletion behaviour decided (B3.1, B8). Both API objects (77081, 77082, B3.10–B3.11) are
+      Business-category per Standards §8.6, but that section is N/A here — Part 8 scopes to
+      projects with a target language beyond source, and this one has none.
+- [x] Every field on every page carries `Caption`, `ToolTip`, and `ApplicationArea = All`
+      (Standards §1.4) — gap found and fixed at Step 6 review (Issue 9, `docs/ChangeLog.md`).
 - [x] Target language: US/`en-US` only, no separate reviewer needed beyond the confirmed source
       wording decision; no regional term glossary needed (A7, B10 — both N/A for the stated
       reason).

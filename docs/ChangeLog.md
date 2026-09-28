@@ -16,6 +16,121 @@ person, never a role. Superseded decisions stay, marked superseded.
 
 ---
 
+## Deferred 7 — Step 7 closed: functional test pass green, release candidate marked (2026-09-27)
+
+**Problem:** N/A — recording the exit-gate confirmation and release marking, not a defect.
+**Root cause:** N/A.
+**Resolution:** AJ ran `docs/TestScript.md` end to end against
+`outputAppPackage/SIC_Code_Classification_1.0.1.0.app` on the sandbox: every green-team case
+(TC-1–TC-9) passed and every red-team case (TC-10–TC-15) failed gracefully, with no findings.
+Language pass N/A (US wording only, no translation files). Upgrade-path testing N/A — this is the
+first release; no prior version has been installed anywhere real (Standards §9.6, Design Doc B6).
+Permission sets verified as part of the same pass: `OCPFSIC SIC, VIEW` reads everywhere;
+`OCPFSIC SIC, EDIT` reads and writes on the editable pages.
+Per the Step 7 exit gate, the tested package is now marked as the release candidate: `app.json`
+bumped `1.0.1.0` → `1.0.1.1` (Revision segment only, no code change) and rebuilt — 0 errors,
+0 warnings — as `outputAppPackage/SIC_Code_Classification_1.0.1.1.app`, so the exact artifact that
+passed testing stays permanently identifiable, distinct from any future rebuild that might reuse
+the `1.0.1.0` filename. `1.0.0.0` and `1.0.1.0` remain on disk, untouched, per Ops § Packaging.
+**Schema Sync Mode for this deploy:** **Add** — this release only adds tables, fields, and pages
+since the extension has never been in a production tenant; nothing is removed, shrunk, retyped, or
+re-keyed.
+**Files affected:** `app.json` (version), `outputAppPackage/SIC_Code_Classification_1.0.1.1.app`
+(new), `docs/Docs.md` (§3 Deployment), `docs/TestScript.md` (§5 Results).
+**Design Doc updated:** No — release marking, not a design change.
+
+## Issue 9 — API and summary page fields missing `ApplicationArea = All` (Step 6 code review)
+
+**Problem:** Step 6's code review (Standards §1.4: `Caption`, `ToolTip`, and `ApplicationArea = All`
+are mandatory on every field, no exceptions) found `ApplicationArea = All` missing from every field
+on the two new API pages (77081, 77082) and the `systemId` field on both.
+**Root cause:** The API page fields were generated focused on `Caption`/`ToolTip` (what OData
+`$metadata` surfaces) and the property was overlooked; it doesn't affect OData behavior directly, so
+the compiler doesn't flag it, but the Standards Guide requires it unconditionally, including on API
+pages (Anti-Patterns, Standards Part 7: "Missing `ApplicationArea = All`" → "Fields hidden in API
+context").
+**Resolution:** Added `ApplicationArea = All;` to every field on `ocpfsicSicCodeApi` (77081) and
+`ocpfsicCustomerApi` (77082), including `systemId`. Recompiled clean: 0 errors, 0 warnings.
+Repackaged at the same version (`1.0.1.0`) — not yet redeployed/retested by AJ, so this is a build
+still in the current testing round, not a new version (Ops § Packaging).
+**Files affected:** `src/Pages/ocpfsicSicCodeApi.Page.al`, `src/Pages/ocpfsicCustomerApi.Page.al`.
+**Design Doc updated:** No — property-level compliance, not a structural change.
+
+## Deferred 6 — API caption locking (Standards §8.6) recorded as not applicable
+
+**Problem:** N/A — a classification decision, not a defect. Standards §8.6 asks every API page to
+be classified Business / Technical-admin / Technical-plumbing and to set `EntityCaption`/
+`EntitySetCaption` (translatable) or `Locked = true` (locked).
+**Root cause:** N/A.
+**Resolution:** Part 8's own scope note limits it to "every project with at least one target
+language recorded at runbook Step 01" (§1.7's no-ML-syntax rule is the only always-on exception).
+This project records no target language beyond source (`docs/ProjectParameters.md`: "None beyond
+source — United States / en-US only"), so §8.6 doesn't apply; `ocpfsicSicCodeApi` (77081) and
+`ocpfsicCustomerApi` (77082) set neither `EntityCaption`/`EntitySetCaption` nor `Locked = true`.
+Revisit if a target language is ever added.
+**Files affected:** None.
+**Design Doc updated:** Yes — recorded in B3.10/B3.11.
+
+## Deferred 5 — Step 5 closed: sandbox testing confirmed clean (2026-09-27)
+
+**Problem:** N/A — recording the exit-gate confirmation, not a defect.
+**Root cause:** N/A.
+**Resolution:** AJ republished `outputAppPackage/SIC_Code_Classification_1.0.1.0.app` and confirmed
+sandbox testing clean, covering the Issue 8 FlowField fix and the Feedback 1 drill-down/API
+additions. Step 5 exit gate met: extension compiles 0 errors/0 warnings with the required
+analyzers, human confirms sandbox testing clean, no known systemic issue outstanding, translation
+checks N/A (US wording only). Moving to Step 6 (Review, Gap-Check & Finalize Docs).
+**Files affected:** None.
+**Design Doc updated:** No.
+
+## Issue 8 — SIC Code Description didn't refresh on the Customer Card until leaving and returning
+
+**Problem:** AJ's sandbox testing found that after picking a SIC Code on the Customer Card, the
+`SIC Code Description` FlowField stayed blank until the page was closed and reopened.
+**Root cause:** Business Central's client only recalculates a page's FlowFields when a record is
+freshly read — editing a sibling field via `Validate` doesn't trigger a client-side refresh of
+other bound controls on its own. `ocpfsicCustomerCardExt`'s `SIC Code` field had no `OnValidate`
+trigger to force one.
+**Resolution:** Added `trigger OnValidate() begin CurrPage.Update(false); end;` to the `SIC Code`
+field in the page extension, so picking a code immediately refreshes the description.
+**Files affected:** `src/PageExtensions/ocpfsicCustomerCardExt.PageExt.al`.
+**Design Doc updated:** No — this is page-trigger behaviour, not a structural design change.
+
+## Feedback 1 — Customer-count drill-down and two new API pages (2026-09-27)
+
+**Problem:** N/A — new scope requested directly by AJ during Step 5 testing, not a defect:
+(1) always be able to see a customer count, with drill-down to the customer list, by Industry
+Group, Major Group, Division, and SIC Code — interactive lookup only, no report objects; (2) a
+Read/Write API page for the SIC Code table; (3) a new, self-contained Read/Write Customer API page
+exposing every applicable Customer field plus SIC Code and its description.
+**Root cause:** N/A — scope addition.
+**Resolution:** Added field 8 `Customer Count` (FlowField) to Table 77071; added a `Customers`
+drill-down action + that field to Page 77072 for SIC-Code-level lookup; added Table 77079
+"ocpfsicSicSummary" (temporary buffer) and Page 77080 (List) for Division / Major Group / Industry
+Group drill-down, each level rebuilt in AL from `"ocpfsicSicCode"` since a two-hop aggregate
+(Customer → SIC Code → group) can't be expressed as a single FlowField; added Page 77081
+"ocpfsicSicCodeApi" (API, Read/Write) and Page 77082 "ocpfsicCustomerApi" (API, Read/Write, all 159
+applicable Customer fields per Standards Part 3 plus SIC Code/SIC Code Description). AJ was asked
+whether to extend Microsoft's standard Customer API page (leaner, reuses the entity most
+integrations already call) or build a new self-contained one as originally requested; AJ chose the
+new self-contained page. Full field list verified against the downloaded Base Application symbols
+(`al_symbolsearch` and the bundled `Customer.Table.al` source), not memory — 18 localization-range
+fields, 4 `FlowFilter` fields, and 2 obsolete fields excluded per Standards §3.2.
+**Files affected:** `src/Tables/ocpfsicSicCode.Table.al`, `src/Tables/ocpfsicSicSummary.Table.al`
+(new), `src/Pages/ocpfsicSicCodes.Page.al`, `src/Pages/ocpfsicSicSummary.Page.al` (new),
+`src/Pages/ocpfsicSicCodeApi.Page.al` (new), `src/Pages/ocpfsicCustomerApi.Page.al` (new),
+`src/PermissionSets/OCPFSICSICVIEW.PermissionSet.al`, `app.json` (version), `docs/DesignDoc.md` (B2,
+B3.1, B3.2, new B3.8–B3.11, B5, B11).
+**Design Doc updated:** Yes.
+**Packaging:** this batch's first build wrongly overwrote `outputAppPackage/SIC_Code_Classification_1.0.0.0.app`
+in place — a violation of Ops § Packaging's never-delete-or-overwrite-a-different-version rule.
+Caught and corrected immediately: the original 1.0.0.0 package was restored from git, `app.json`
+bumped to `1.0.1.0` (Build segment, at AJ's explicit direction), and this batch repackaged as
+`outputAppPackage/SIC_Code_Classification_1.0.1.0.app` beside it. Both packages are now git-tracked
+as separate files.
+
+---
+
 ## Deferred 4 — Publishing and sandbox testing done by AJ, not the agent (Step 5)
 
 **Problem:** N/A — recording an environment constraint and AJ's decision, not a defect.

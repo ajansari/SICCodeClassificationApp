@@ -1,23 +1,29 @@
 namespace OnlyCopilotFans.SicClassification;
 
-using Microsoft.Sales.Customer;
-
-page 77072 "ocpfsicSicCodes"
+page 77081 "ocpfsicSicCodeApi"
 {
-    PageType = List;
-    ApplicationArea = All;
-    UsageCategory = Lists;
+    PageType = API;
+    APIPublisher = 'onlyCopilotFans';
+    APIGroup = 'ocpfsicClassification';
+    APIVersion = 'v1.0';
+    EntityName = 'ocpfsicSicCode';
+    EntitySetName = 'ocpfsicSicCodes';
     SourceTable = "ocpfsicSicCode";
-    Caption = 'SIC Codes';
     DelayedInsert = true;
-    SourceTableView = sorting(Code);
+    ODataKeyFields = SystemId;
+    Caption = 'Represents an entry in the Standard Industrial Classification (SIC) code list, the U.S. Department of Labor''s 1987 industry classification hierarchy.';
 
     layout
     {
-        area(content)
+        area(Content)
         {
             repeater(Group)
             {
+                field(systemId; Rec.SystemId)
+                {
+                    Visible = false;
+                    ApplicationArea = All;
+                }
                 field(code; Rec.Code)
                 {
                     Caption = 'Code';
@@ -60,28 +66,6 @@ page 77072 "ocpfsicSicCodes"
                     ToolTip = 'Specifies how many customers are assigned this SIC code.';
                     ApplicationArea = All;
                 }
-            }
-        }
-    }
-
-    actions
-    {
-        area(Processing)
-        {
-            action(ActionShowCustomers)
-            {
-                Caption = 'Customers';
-                ToolTip = 'Shows the customers assigned this SIC code.';
-                ApplicationArea = All;
-                Image = Customer;
-
-                trigger OnAction()
-                var
-                    Customer: Record Customer;
-                begin
-                    Customer.SetRange("SIC Code", Rec.Code);
-                    Page.Run(Page::"Customer List", Customer);
-                end;
             }
         }
     }

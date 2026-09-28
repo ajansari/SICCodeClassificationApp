@@ -7,5 +7,8 @@ permissionset 77077 "OCPFSIC SIC, VIEW"
 
     Permissions =
         tabledata "ocpfsicSicCode" = R,
-        page "ocpfsicSicCodes" = X;
+        page "ocpfsicSicCodes" = X,
+        page "ocpfsicSicSummary" = X,
+        page "ocpfsicSicCodeApi" = X,
+        page "ocpfsicCustomerApi" = X;
 }

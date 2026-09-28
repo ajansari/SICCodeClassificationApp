@@ -44,6 +44,13 @@ table 77071 "ocpfsicSicCode"
             Caption = 'Division Name Overridden';
             DataClassification = SystemMetadata;
         }
+        field(8; "Customer Count"; Integer)
+        {
+            Caption = 'Customer Count';
+            FieldClass = FlowField;
+            CalcFormula = count(Customer where("SIC Code" = field(Code)));
+            Editable = false;
+        }
     }
 
     keys

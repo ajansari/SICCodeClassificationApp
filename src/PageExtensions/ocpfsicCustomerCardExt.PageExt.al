@@ -17,6 +17,11 @@ pageextension 77074 "ocpfsicCustomerCardExt" extends "Customer Card"
                     Caption = 'SIC Code';
                     ToolTip = 'Specifies the Standard Industrial Classification code assigned to this customer.';
                     ApplicationArea = All;
+
+                    trigger OnValidate()
+                    begin
+                        CurrPage.Update(false);
+                    end;
                 }
                 field(ocpfsicSicCodeDescription; Rec."SIC Code Description")
                 {
